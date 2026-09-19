@@ -59,7 +59,7 @@ class VideoConverter(BaseConverter):
             if dst_ext == 'webm':
                 cmd.extend(['-crf', '23'])
             elif dst_ext == 'mp4':
-                cmd.extend(['-crf', str(max(18, min(28, 28 - int(self.quality / 10)))]))
+                cmd.extend(['-crf', str(max(18, min(28, 28 - int(self.quality / 10))))])
             elif dst_ext == 'mkv':
                 cmd.extend(['-crf', '23'])
 

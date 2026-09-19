@@ -110,8 +110,9 @@ class ImageConverter(BaseConverter):
                     save_kwargs['optimize'] = True
                     save_kwargs['format'] = 'TIFF'
                 elif dst_ext == 'gif':
+                    if img.mode != 'P':
+                        img = img.convert('P', palette=Image.Palette.ADAPTIVE)
                     save_kwargs['format'] = 'GIF'
-                    save_kwargs['palette'] = 'ADAPTIVE'
                 elif dst_ext == 'avif':
                     try:
                         save_kwargs['format'] = 'AVIF'
