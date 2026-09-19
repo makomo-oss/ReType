@@ -1,0 +1,155 @@
+# ReType Settings
+
+# Keep the original file after conversion (True = keep, False = delete original)
+keep_original: true
+
+# Conversion quality (0-100, applies to image/video conversion)
+quality: 85
+
+# Overwrite existing files without prompt
+overwrite_existing: false
+
+# File types to monitor (set to false to disable all conversions for that type)
+monitor:
+  image: true
+  video: true
+  audio: true
+  document: true
+
+# Image format mappings (source -> target extensions)
+image_formats:
+  png:
+    - jpeg
+    - jpg
+    - webp
+    - bmp
+    - tiff
+    - gif
+    - avif
+  jpeg:
+    - png
+    - webp
+    - bmp
+    - tiff
+    - gif
+    - avif
+  webp:
+    - png
+    - jpeg
+    - jpg
+    - bmp
+    - tiff
+    - gif
+  gif:
+    - png
+    - jpeg
+    - jpg
+    - webp
+    - bmp
+    - tiff
+  bmp:
+    - png
+    - jpeg
+    - jpg
+    - webp
+    - tiff
+    - gif
+    - avif
+  tiff:
+    - png
+    - jpeg
+    - jpg
+    - webp
+    - gif
+    - bmp
+  avif:
+    - png
+    - jpeg
+    - jpg
+    - webp
+    - bmp
+    - tiff
+
+# Video format mappings
+video_formats:
+  mp4:
+    - webm
+    - avi
+    - mov
+    - mkv
+    - gif
+  webm:
+    - mp4
+    - avi
+    - mov
+    - mkv
+    - gif
+  avi:
+    - mp4
+    - webm
+    - mov
+    - mkv
+  mov:
+    - mp4
+    - webm
+    - avi
+    - mkv
+  mkv:
+    - mp4
+    - webm
+    - avi
+    - mov
+    - gif
+
+# Audio format mappings
+audio_formats:
+  mp3:
+    - wav
+    - flac
+    - ogg
+    - m4a
+  wav:
+    - mp3
+    - flac
+    - ogg
+    - m4a
+  flac:
+    - mp3
+    - wav
+    - ogg
+    - m4a
+  ogg:
+    - mp3
+    - wav
+    - flac
+    - m4a
+  m4a:
+    - mp3
+    - wav
+    - flac
+    - ogg
+
+# Document format mappings
+document_formats:
+  md:
+    - txt
+    - html
+    - pdf
+  txt:
+    - md
+    - html
+    - pdf
+  html:
+    - md
+    - txt
+    - pdf
+  rtf:
+    - md
+    - txt
+    - html
+    - pdf
+
+# Retry settings
+retry:
+  max_attempts: 3
+  delay_seconds: 1
