@@ -23,4 +23,7 @@ public sealed class Settings
 
     /// <summary>監視対象フォルダの絶対パス一覧。</summary>
     public List<string> WatchedFolders { get; set; } = [];
+
+    /// <summary>ffmpeg / pandoc を探す追加フォルダ（tools/ 等）。空なら PATH のみ。</summary>
+    public string ToolsDirectory { get; set; } = "";
 }
