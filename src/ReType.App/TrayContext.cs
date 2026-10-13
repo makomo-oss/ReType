@@ -24,7 +24,7 @@ public sealed class TrayContext : ApplicationContext
 
         _notifyIcon = new NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            Icon = LoadTrayIcon(),
             Text = "ReType",
             Visible = true,
         };
@@ -73,6 +73,20 @@ public sealed class TrayContext : ApplicationContext
         _watcher = new FileWatcherService(_ledger);
         _watcher.ExternalRenameDetected += (oldPath, newPath) => _queue.Enqueue(_detector.Detect(oldPath, newPath));
         _watcher.Watch(_settings.WatchedFolders, _settings.IncludeSubdirectories);
+    }
+
+    private static Icon LoadTrayIcon()
+    {
+        var stream = typeof(TrayContext).Assembly.GetManifestResourceStream("app.ico");
+        if (stream is not null)
+        {
+            using (stream)
+            {
+                return new Icon(stream, 16, 16);
+            }
+        }
+
+        return SystemIcons.Application;
     }
 
     private static IReadOnlyList<IConverter> CreateConverters(AppSettings settings)

@@ -12,7 +12,16 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>ReType</AssemblyName>
+    <ApplicationIcon>..\..\assets\app.ico</ApplicationIcon>
+    <Version>0.1.0</Version>
+    <Product>ReType</Product>
+    <Description>ファイルの拡張子を変えるだけのシンプルファイル変換</Description>
   </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\assets\app.ico" LogicalName="app.ico" />
+  </ItemGroup>
 
   <!-- Bundle third-party tools (fetched by scripts/fetch-tools.ps1) next to the app. -->
   <ItemGroup>
