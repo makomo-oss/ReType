@@ -1,0 +1,16 @@
+ReType に同梱されるサードパーティソフトウェアについて
+
+■ ffmpeg
+  ・ReType は ffmpeg.exe を再配布します。
+  ・ライセンス: LGPL/GPL（ビルドにより異なります）
+  ・ソースコード: https://ffmpeg.org/download.html
+  ・本インストーラーに同梱したビルドの完全なソースコードは
+    https://github.com/GyanD/codexffmpeg から取得できます。
+
+■ pandoc
+  ・ReType は pandoc.exe を再配布します。
+  ・ライセンス: GPL-2.0-or-later
+  ・ソースコード: https://github.com/jgm/pandoc/releases
+
+インストールを続行することで、上記各ソフトウェアのライセンス条件に
+同意したものとみなされます。

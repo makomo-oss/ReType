@@ -16,3 +16,7 @@ Desktop.ini
 
 # Third-party tool binaries (fetched by scripts/fetch-tools.ps1)
 thirdparty/bin/
+
+# Installer build outputs
+publish/
+dist/

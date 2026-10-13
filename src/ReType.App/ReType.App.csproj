@@ -28,6 +28,7 @@
     <None Include="..\..\thirdparty\bin\**\*"
           Link="thirdparty\bin\%(RecursiveDir)%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
           Condition="Exists('..\..\thirdparty\bin')" />
   </ItemGroup>
 
