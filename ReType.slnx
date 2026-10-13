@@ -6,6 +6,6 @@
     <Project Path="src/ReType.Core/ReType.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/ReType.Core.Tests/ReType.Core.Tests.csproj" />
+    <Project Path="tests/ReType.Tests/ReType.Tests.csproj" />
   </Folder>
 </Solution>

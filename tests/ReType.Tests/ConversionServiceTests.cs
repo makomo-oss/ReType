@@ -1,7 +1,7 @@
 using ReType.Core;
 using Xunit;
 
-namespace ReType.Core.Tests;
+namespace ReType.Tests;
 
 public sealed class ConversionServiceTests : IDisposable
 {

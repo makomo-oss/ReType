@@ -1,7 +1,16 @@
 namespace ReType.Core;
 
 /// <summary>Raised by converters when a conversion cannot be performed; the message is shown to the user.</summary>
-public sealed class ConversionFailedException(string message) : Exception(message);
+public sealed class ConversionFailedException : Exception
+{
+    public ConversionFailedException(string message) : base(message)
+    {
+    }
+
+    public ConversionFailedException(string message, Exception inner) : base(message, inner)
+    {
+    }
+}
 
 /// <summary>
 /// Replaces the renamed file with the real converted content, or restores the
