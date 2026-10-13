@@ -11,6 +11,15 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
+
+  <!-- Bundle third-party tools (fetched by scripts/fetch-tools.ps1) next to the app. -->
+  <ItemGroup>
+    <None Include="..\..\thirdparty\bin\**\*"
+          Link="thirdparty\bin\%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest"
+          Condition="Exists('..\..\thirdparty\bin')" />
+  </ItemGroup>
 
 </Project>

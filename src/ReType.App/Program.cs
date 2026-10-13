@@ -1,16 +1,19 @@
 namespace ReType.App;
 
-static class Program
+internal static class Program
 {
-    /// <summary>
-    ///  The main entry point for the application.
-    /// </summary>
     [STAThread]
-    static void Main()
+    private static int Main()
     {
-        // To customize application configuration such as set high DPI settings or default font,
-        // see https://aka.ms/applicationconfiguration.
+        using var singleInstance = new Mutex(true, "Local\\ReType.SingleInstance", out var isFirstInstance);
+        if (!isFirstInstance)
+        {
+            return 0;
+        }
+
         ApplicationConfiguration.Initialize();
-        Application.Run(new Form1());
-    }    
+        using var context = new TrayContext();
+        Application.Run(context);
+        return 0;
+    }
 }
