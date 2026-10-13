@@ -20,3 +20,9 @@ jobs:
         run: dotnet build ReType.slnx -c Release --no-restore
       - name: Test
         run: dotnet test tests/ReType.Tests -c Release --no-build
+      - name: Build installer
+        run: pwsh -File scripts/build-installer.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: dist/ReType-Setup-*.exe
