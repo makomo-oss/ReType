@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ReType.App/ReType.App.csproj" />
+    <Project Path="src/ReType.Cli/ReType.Cli.csproj" />
+    <Project Path="src/ReType.Converters/ReType.Converters.csproj" />
+    <Project Path="src/ReType.Core/ReType.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ReType.Core.Tests/ReType.Core.Tests.csproj" />
+  </Folder>
+</Solution>

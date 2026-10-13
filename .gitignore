@@ -1,0 +1,18 @@
+# Build results
+[Bb]in/
+[Oo]bj/
+artifacts/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Third-party tool binaries (fetched by scripts/fetch-tools.ps1)
+thirdparty/bin/
