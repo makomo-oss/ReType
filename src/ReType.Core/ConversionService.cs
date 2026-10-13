@@ -72,7 +72,9 @@ public sealed class ConversionService
 
         var directory = Path.GetDirectoryName(target)
             ?? throw new ConversionFailedException("変換先フォルダを特定できません");
-        var tempPath = Path.Combine(directory, $"retype-{Guid.NewGuid():N}.tmp");
+        // The temp name keeps the target extension so content-based tools
+        // (ffmpeg, pandoc) can infer the output format; the ledger prevents loops.
+        var tempPath = Path.Combine(directory, $"retype-{Guid.NewGuid():N}{decision.ToExtension}");
 
         string? failureReason = null;
         try
