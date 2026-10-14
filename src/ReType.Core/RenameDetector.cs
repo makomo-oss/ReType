@@ -28,9 +28,19 @@ public sealed record RenameDecision(
 /// Decides whether a file rename should trigger a content conversion.
 /// Handles the hidden-extension case: with extensions hidden in Explorer,
 /// renaming "photo.jpg" to "photo.webp" actually produces "photo.webp.jpg".
+/// Renames that involve transient (download/temp/backup) extensions, or whose
+/// source format is unknown, are program operations rather than user
+/// conversion requests and are always ignored.
 /// </summary>
 public sealed class RenameDetector
 {
+    /// <summary>Extensions used by downloads, atomic saves, and backups; never conversion requests.</summary>
+    private static readonly HashSet<string> TransientExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".tmp", ".temp", ".part", ".partial", ".crdownload", ".download",
+        ".opdownload", ".dzip", ".bak", ".old", ".etl", ".wip", ".wbk",
+    };
+
     public RenameDecision Detect(string oldPath, string newPath)
     {
         if (string.Equals(oldPath, newPath, StringComparison.OrdinalIgnoreCase))
@@ -40,6 +50,13 @@ public sealed class RenameDetector
 
         var oldExt = ConversionMatrix.Normalize(Path.GetExtension(oldPath));
         var newExt = ConversionMatrix.Normalize(Path.GetExtension(newPath));
+
+        // Browsers finish downloads as "file.exe.tmp -> file.exe"; editors and
+        // installers use similar temp renames. Never treat those as conversions.
+        if (TransientExtensions.Contains(oldExt) || TransientExtensions.Contains(newExt))
+        {
+            return RenameDecision.Ignore(oldPath, newPath);
+        }
 
         if (newExt == oldExt)
         {
@@ -64,6 +81,14 @@ public sealed class RenameDetector
             return new RenameDecision(RenameDecisionKind.Convert, oldPath, newPath, oldExt, newExt);
         }
 
-        return new RenameDecision(RenameDecisionKind.Unsupported, oldPath, newPath, oldExt, newExt);
+        // Only report unsupported (and roll back) when both extensions are formats
+        // ReType knows about, e.g. .jpg -> .mp3. An unknown target extension
+        // (.xyz, .exe, ...) is left untouched.
+        if (ConversionMatrix.CategoryOf(oldExt) is not null && ConversionMatrix.CategoryOf(newExt) is not null)
+        {
+            return new RenameDecision(RenameDecisionKind.Unsupported, oldPath, newPath, oldExt, newExt);
+        }
+
+        return RenameDecision.Ignore(oldPath, newPath);
     }
 }

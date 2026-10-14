@@ -42,9 +42,31 @@ public class RenameDetectorTests
     }
 
     [Fact]
-    public void UnknownExtension_IsUnsupported()
+    public void UnknownTargetExtension_IsLeftAlone()
     {
-        Assert.Equal(RenameDecisionKind.Unsupported, Detector.Detect(@"C:\t\photo.jpg", @"C:\t\photo.xyz").Kind);
+        // A target extension ReType does not know is not a conversion request;
+        // never roll back (programs rename files to unknown extensions too).
+        Assert.Equal(RenameDecisionKind.Ignore, Detector.Detect(@"C:\t\photo.jpg", @"C:\t\photo.xyz").Kind);
+    }
+
+    [Theory]
+    [InlineData(@"C:\t\setup.exe.crdownload", @"C:\t\setup.exe")]  // Chrome download finish
+    [InlineData(@"C:\t\setup.exe.tmp", @"C:\t\setup.exe")]         // Edge download finish
+    [InlineData(@"C:\t\setup.exe.part", @"C:\t\setup.exe")]        // Firefox download finish
+    [InlineData(@"C:\t\setup.exe.download", @"C:\t\setup.exe")]    // Safari download finish
+    [InlineData(@"C:\t\photo.jpg", @"C:\t\photo.jpg.tmp")]         // editor atomic save
+    [InlineData(@"C:\t\notes.docx", @"C:\t\notes.wbk")]            // Word backup rename
+    [InlineData(@"C:\t\data.tmp", @"C:\t\data.jpg")]               // extraction/save via temp
+    public void TransientExtensionRename_IsIgnored(string oldPath, string newPath)
+    {
+        Assert.Equal(RenameDecisionKind.Ignore, Detector.Detect(oldPath, newPath).Kind);
+    }
+
+    [Fact]
+    public void UnknownSourceExtension_IsIgnored()
+    {
+        // ReType only converts formats it understands; unknown sources are untouched.
+        Assert.Equal(RenameDecisionKind.Ignore, Detector.Detect(@"C:\t\data.qqq", @"C:\t\data.md").Kind);
     }
 
     [Fact]
