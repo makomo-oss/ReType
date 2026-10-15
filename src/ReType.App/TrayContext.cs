@@ -35,7 +35,7 @@ public sealed class TrayContext : ApplicationContext
         };
 
         var menu = new ContextMenuStrip();
-        menu.Items.Add("監視フォルダ...", null, (_, _) => ShowFoldersForm());
+        menu.Items.Add("設定...", null, (_, _) => ShowSettings());
 
         _updateMenuItem = new ToolStripMenuItem { Visible = false };
         _updateMenuItem.Click += OnUpdateClick;
@@ -57,7 +57,8 @@ public sealed class TrayContext : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("終了", null, (_, _) => ExitThread());
         _notifyIcon.ContextMenuStrip = menu;
-        _notifyIcon.DoubleClick += (_, _) => ShowFoldersForm();
+        _notifyIcon.Click += (_, _) => ShowSettings();
+        _notifyIcon.DoubleClick += (_, _) => ShowSettings();
 
         RestartWatching();
 
@@ -65,14 +66,42 @@ public sealed class TrayContext : ApplicationContext
         _ = Task.Run(() => CheckForUpdatesAsync(manual: false));
     }
 
-    private void ShowFoldersForm()
+    private SettingsForm? _settingsForm;
+
+    private void ShowSettings()
     {
-        using var form = new FoldersForm(_settings);
-        if (form.ShowDialog() == DialogResult.OK)
+        if (_settingsForm is { IsDisposed: false })
         {
-            _settings = form.ResultSettings;
-            _settingsService.Save(_settings);
-            RestartWatching();
+            if (_settingsForm.WindowState == FormWindowState.Minimized)
+            {
+                _settingsForm.WindowState = FormWindowState.Normal;
+            }
+
+            _settingsForm.Activate();
+            return;
+        }
+
+        var form = new SettingsForm(
+            _settings,
+            AutoStart.IsEnabled,
+            CurrentVersion,
+            () => _updateChecker.GetLatestReleaseAsync(),
+            ApplyUpdateAsync);
+        _settingsForm = form;
+        try
+        {
+            if (form.ShowDialog() == DialogResult.OK)
+            {
+                _settings = form.ResultSettings;
+                _settingsService.Save(_settings);
+                AutoStart.SetEnabled(form.ResultAutoStart);
+                RestartWatching();
+            }
+        }
+        finally
+        {
+            _settingsForm = null;
+            form.Dispose();
         }
     }
 
@@ -136,12 +165,9 @@ public sealed class TrayContext : ApplicationContext
             $"{release.Version} のインストーラーをダウンロードしています...",
             ToolTipIcon.Info);
 
-        var installerPath = Path.Combine(Path.GetTempPath(), release.AssetName);
         try
         {
-            await _updateChecker.DownloadInstallerAsync(release, installerPath);
-            UpdateApplier.ApplyAndRestart(installerPath, Environment.ProcessPath!);
-            ExitThread();
+            await ApplyUpdateAsync(release);
         }
         catch (Exception ex)
         {
@@ -151,6 +177,15 @@ public sealed class TrayContext : ApplicationContext
                 $"ダウンロードに失敗しました: {ex.Message}",
                 ToolTipIcon.Warning);
         }
+    }
+
+    /// <summary>Downloads the release installer and hands it to the update helper; the app then exits.</summary>
+    private async Task ApplyUpdateAsync(ReleaseInfo release)
+    {
+        var installerPath = Path.Combine(Path.GetTempPath(), release.AssetName);
+        await _updateChecker.DownloadInstallerAsync(release, installerPath);
+        UpdateApplier.ApplyAndRestart(installerPath, Environment.ProcessPath!);
+        ExitThread();
     }
 
     private void RestartWatching()

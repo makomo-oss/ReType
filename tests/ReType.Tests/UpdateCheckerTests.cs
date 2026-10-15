@@ -38,19 +38,19 @@ public class UpdateCheckerTests
     }
 
     [Theory]
-    [InlineData("v0.1.2", 0, 1, 2)]
-    [InlineData("0.1.2", 0, 1, 2)]
+    [InlineData("v0.1.2", "0.1.2")]
+    [InlineData("0.1.2", "0.1.2")]
     [InlineData("release-7", null)]
-    public void ParseVersion_HandlesTagFormats(string tag, int major, int? minor = null, int? build = null)
+    public void ParseVersion_HandlesTagFormats(string tag, string? expected)
     {
         var version = ReleaseInfo.ParseVersion(tag);
-        if (minor is null)
+        if (expected is null)
         {
             Assert.Null(version);
         }
         else
         {
-            Assert.Equal(new Version(major, minor.Value, build ?? 0), version);
+            Assert.Equal(Version.Parse(expected), version);
         }
     }
 

@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\ReType.Core\ReType.Core.csproj" />
     <ProjectReference Include="..\..\src\ReType.Converters\ReType.Converters.csproj" />
+    <ProjectReference Include="..\..\src\ReType.App\ReType.App.csproj" />
   </ItemGroup>
 
 </Project>
