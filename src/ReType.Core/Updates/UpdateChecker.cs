@@ -91,19 +91,32 @@ public sealed class UpdateChecker
 /// </summary>
 public static class UpdateApplier
 {
+    /// <summary>
+    /// Hands the downloaded installer to a detached helper process that stops
+    /// the running app, runs the silent install (with one retry), restarts the
+    /// app, and cleans up the installer file. The caller should exit right after.
+    /// </summary>
     /// <param name="appExePath">App to relaunch after install; null to skip the relaunch.</param>
     public static void ApplyAndRestart(string installerPath, string? appExePath)
     {
         installerPath = Path.GetFullPath(installerPath);
 
+        string InstallCmd(string path) =>
+            "$p = Start-Process -FilePath '" + path + "' -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru";
+
         var script =
-            "Start-Process -FilePath '" + installerPath + "' -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait; ";
+            // The Restart Manager does not reliably close tray apps; stop it explicitly.
+            "Get-Process -Name 'ReType' -ErrorAction SilentlyContinue | Stop-Process -Force; " +
+            "Start-Sleep -Seconds 2; " +
+            InstallCmd(installerPath) + "; " +
+            "if ($p.ExitCode -ne 0) { Start-Sleep -Seconds 3; " + InstallCmd(installerPath) + " }";
+
         if (appExePath is not null)
         {
-            script += "Start-Process -FilePath '" + Path.GetFullPath(appExePath) + "'; ";
+            script += "; if ($p.ExitCode -eq 0) { Start-Process -FilePath '" + Path.GetFullPath(appExePath) + "' }";
         }
 
-        script += "Remove-Item -LiteralPath '" + installerPath + "' -Force";
+        script += "; Remove-Item -LiteralPath '" + installerPath + "' -Force";
 
         Process.Start(new ProcessStartInfo
         {
