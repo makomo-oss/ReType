@@ -26,8 +26,11 @@ jobs:
           # commit subjects since the previous tag for lightweight tags.
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
           $tag = $env:GITHUB_REF_NAME
+          # checkout@v4 overwrites the tag ref with a commit-SHA ref for tag events,
+          # dropping the annotated tag object; re-fetch it so the message is available.
+          git fetch --force origin "refs/tags/${tag}:refs/tags/${tag}"
           $message = ""
-          if ((git cat-file -t $tag) -eq "tag") {
+          if ((git cat-file -t "refs/tags/$tag") -eq "tag") {
             $message = (git for-each-ref --format='%(contents:subject)%0a%0a%(contents:body)' "refs/tags/$tag") -join "`n"
           }
           if ([string]::IsNullOrWhiteSpace($message)) {
