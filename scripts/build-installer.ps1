@@ -1,10 +1,17 @@
 # Builds a self-contained single-file exe and compiles the Inno Setup installer.
 # Output: dist\ReType-Setup-<version>.exe
-param([string]$Version = "0.1.5")
+# The version comes from the release tag (git describe); pass -Version to override.
+param([string]$Version = "")
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
+
+if (-not $Version) {
+    $Version = (git describe --tags --abbrev=0 2>$null) -replace '^v', ''
+    if (-not $Version) { $Version = "0.0.0" }
+}
+Write-Host "Building installer version $Version"
 
 # 1. Conversion tools (ffmpeg / pandoc) into thirdparty\bin.
 if (-not (Test-Path "$root\thirdparty\bin\ffmpeg.exe") -or

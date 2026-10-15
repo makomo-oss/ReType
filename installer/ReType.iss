@@ -1,6 +1,6 @@
 ; ReType installer (Inno Setup 6). Build with scripts/build-installer.ps1
 #define MyAppName "ReType"
-#define MyAppVersion "0.1.5"
+#define MyAppVersion "0.0.0" ; placeholder - build-installer.ps1 overrides via /DMyAppVersion from the git tag
 #define MyAppPublisher "makomo-oss"
 
 [Setup]

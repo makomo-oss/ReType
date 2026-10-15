@@ -14,7 +14,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>ReType</AssemblyName>
     <ApplicationIcon>..\..\assets\app.ico</ApplicationIcon>
-    <Version>0.1.5</Version>
+    <Version>0.0.0</Version> <!-- placeholder; release builds override with -p:Version from the git tag -->
     <Product>ReType</Product>
     <Description>ファイルの拡張子を変えるだけのシンプルファイル変換</Description>
   </PropertyGroup>
