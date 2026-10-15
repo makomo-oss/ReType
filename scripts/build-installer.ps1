@@ -1,6 +1,6 @@
 # Builds a self-contained single-file exe and compiles the Inno Setup installer.
 # Output: dist\ReType-Setup-<version>.exe
-param([string]$Version = "0.1.4")
+param([string]$Version = "0.1.5")
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
