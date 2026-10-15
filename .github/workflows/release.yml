@@ -12,13 +12,32 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
       - name: Build installer
         run: pwsh -File scripts/build-installer.ps1 -Version ($env:GITHUB_REF_NAME -replace '^v','')
+      - name: Prepare release notes
+        shell: pwsh
+        run: |
+          # Release notes come from the annotated tag message; fall back to the
+          # commit subjects since the previous tag for lightweight tags.
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $tag = $env:GITHUB_REF_NAME
+          $message = ""
+          if ((git cat-file -t $tag) -eq "tag") {
+            $message = (git for-each-ref --format='%(contents:subject)%0a%0a%(contents:body)' "refs/tags/$tag") -join "`n"
+          }
+          if ([string]::IsNullOrWhiteSpace($message)) {
+            git log --pretty="- %s" "$tag^..$tag" | Set-Content -Path notes.md -Encoding utf8
+          } else {
+            Set-Content -Path notes.md -Value $message.Trim() -Encoding utf8
+          }
+          Get-Content notes.md
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/ReType-Setup-*.exe
           fail_on_missing_files: true
-          generate_release_notes: true
+          body_path: notes.md

@@ -49,10 +49,22 @@ GitHub の **[Releases](https://github.com/makomo-oss/ReType/releases)** ペー�
 
 ### 開発者: リリース手順
 
+タグメッセージがそのまま**リリースノート**になります（アノテートタグを使う）。
+
 ```powershell
-git tag v0.1.2
-git push origin v0.1.2     # CI がインストーラーをビルドし GitHub Releases に公開
+# 1. バージョンを上げて main に push（csproj / installer\ReType.iss / scripts\build-installer.ps1）
+# 2. リリースノート付きのタグを打つ
+git tag -a v0.1.5 -m "## 新機能
+
+- ...
+
+## 修正
+
+- ..."
+git push origin v0.1.5     # CI がインストーラーをビルドし、ノートを付けて Releases に公開
 ```
+
+軽量タグ（`git tag v0.1.5`）の場合は、前タグ以降のコミット件名が自動でノートになります。
 
 ## 対応形式
 
