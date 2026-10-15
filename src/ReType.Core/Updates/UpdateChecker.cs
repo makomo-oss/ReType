@@ -91,15 +91,19 @@ public sealed class UpdateChecker
 /// </summary>
 public static class UpdateApplier
 {
-    public static void ApplyAndRestart(string installerPath, string appExePath)
+    /// <param name="appExePath">App to relaunch after install; null to skip the relaunch.</param>
+    public static void ApplyAndRestart(string installerPath, string? appExePath)
     {
         installerPath = Path.GetFullPath(installerPath);
-        appExePath = Path.GetFullPath(appExePath);
 
         var script =
-            "Start-Process -FilePath '" + installerPath + "' -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait; " +
-            "Start-Process -FilePath '" + appExePath + "'; " +
-            "Remove-Item -LiteralPath '" + installerPath + "' -Force";
+            "Start-Process -FilePath '" + installerPath + "' -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait; ";
+        if (appExePath is not null)
+        {
+            script += "Start-Process -FilePath '" + Path.GetFullPath(appExePath) + "'; ";
+        }
+
+        script += "Remove-Item -LiteralPath '" + installerPath + "' -Force";
 
         Process.Start(new ProcessStartInfo
         {

@@ -1,6 +1,7 @@
 ﻿using ReType.Converters;
 using ReType.Core;
 using ReType.Core.Settings;
+using ReType.Core.Updates;
 
 namespace ReType.Cli;
 
@@ -18,6 +19,7 @@ internal static class Program
         {
             "convert" => await RunConvertAsync(args),
             "watch" => await RunWatchAsync(args),
+            "update" => await RunUpdateAsync(args),
             _ => PrintUsage(),
         };
     }
@@ -30,6 +32,8 @@ internal static class Program
             Usage:
               retype convert <inputFile> <targetExtension>   Convert a file to a new file (original untouched)
               retype watch [folder ...]                      Watch folders for extension-change renames
+              retype update check                            Show the latest release vs the current version
+              retype update apply                            Download and silently install the latest release
             """);
         return 1;
     }
@@ -123,6 +127,53 @@ internal static class Program
         {
         }
 
+        return 0;
+    }
+
+    private static async Task<int> RunUpdateAsync(string[] args)
+    {
+        var sub = args.Length > 1 ? args[1].ToLowerInvariant() : "check";
+        var checker = new UpdateChecker();
+        ReleaseInfo? release;
+        try
+        {
+            release = await checker.GetLatestReleaseAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Update check failed: {ex.Message}");
+            return 2;
+        }
+
+        var current = typeof(Program).Assembly.GetName().Version ?? new Version(0, 0);
+        if (release is null)
+        {
+            Console.WriteLine("No published release found.");
+            return 1;
+        }
+
+        Console.WriteLine($"Latest:  {release.TagName} ({release.AssetName})");
+        Console.WriteLine($"Current: {current}");
+        if (!UpdateChecker.IsUpdateAvailable(release, current))
+        {
+            Console.WriteLine("Up to date.");
+            return 0;
+        }
+
+        if (sub != "apply")
+        {
+            Console.WriteLine($"Update available: {release.Version} (run 'update apply' to install)");
+            return 0;
+        }
+
+        var installerPath = Path.Combine(Path.GetTempPath(), release.AssetName);
+        Console.WriteLine($"Downloading {release.DownloadUrl}");
+        await checker.DownloadInstallerAsync(release, installerPath);
+        Console.WriteLine($"Downloaded to {installerPath}; running silent install...");
+
+        var installedApp = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "ReType", "ReType.exe");
+        UpdateApplier.ApplyAndRestart(installerPath, File.Exists(installedApp) ? installedApp : null);
         return 0;
     }
 
