@@ -72,15 +72,12 @@ public sealed class TrayContext : ApplicationContext
     {
         if (_settingsForm is { IsDisposed: false })
         {
-            if (_settingsForm.WindowState == FormWindowState.Minimized)
-            {
-                _settingsForm.WindowState = FormWindowState.Normal;
-            }
-
-            _settingsForm.Activate();
+            RaiseAboveTray(_settingsForm);
             return;
         }
 
+        // Modeless on purpose: the tray stays responsive while settings are
+        // open, and settings are applied on FormClosed.
         var form = new SettingsForm(
             _settings,
             AutoStart.IsEnabled,
@@ -88,22 +85,93 @@ public sealed class TrayContext : ApplicationContext
             () => _updateChecker.GetLatestReleaseAsync(),
             ApplyUpdateAsync);
         _settingsForm = form;
-        try
+        form.FormClosed += (_, _) =>
         {
-            if (form.ShowDialog() == DialogResult.OK)
+            _settingsForm = null;
+            if (form.DialogResult == DialogResult.OK)
             {
                 _settings = form.ResultSettings;
                 _settingsService.Save(_settings);
                 AutoStart.SetEnabled(form.ResultAutoStart);
                 RestartWatching();
             }
+
+            form.Dispose();
+        };
+        form.Show();
+        RaiseAboveTray(form);
+    }
+
+    /// <summary>
+    /// Raises the window above everything and gives it focus. A tray app is
+    /// never the foreground process (the shell receives the tray click), so
+    /// Windows' foreground lock silently blocks Activate()/SetForegroundWindow
+    /// and the window opens invisibly behind other windows. Attaching our
+    /// input queue to the foreground window's thread lifts the block.
+    /// It is repeated shortly after because the shell reasserts its own
+    /// z-order when the tray flyout closes.
+    /// </summary>
+    private static void RaiseAboveTray(Form form)
+    {
+        BringToForeground(form);
+
+        var raise = new System.Windows.Forms.Timer { Interval = 300 };
+        raise.Tick += (_, _) =>
+        {
+            raise.Stop();
+            raise.Dispose();
+            if (!form.IsDisposed)
+            {
+                BringToForeground(form);
+            }
+        };
+        raise.Start();
+    }
+
+    private static void BringToForeground(Form form)
+    {
+        if (form.WindowState == FormWindowState.Minimized)
+        {
+            form.WindowState = FormWindowState.Normal;
+        }
+
+        var foreground = GetForegroundWindow();
+        var foregroundThread = GetWindowThreadProcessId(foreground, out _);
+        var ourThread = GetCurrentThreadId();
+        var attached = foregroundThread != 0 && foregroundThread != ourThread
+            && AttachThreadInput(ourThread, foregroundThread, true);
+        try
+        {
+            BringWindowToTop(form.Handle);
+            form.Activate();
+            SetForegroundWindow(form.Handle);
         }
         finally
         {
-            _settingsForm = null;
-            form.Dispose();
+            if (attached)
+            {
+                AttachThreadInput(ourThread, foregroundThread, false);
+            }
         }
     }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool BringWindowToTop(IntPtr hWnd);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
 
     private static Version CurrentVersion =>
         typeof(TrayContext).Assembly.GetName().Version ?? new Version(0, 0);

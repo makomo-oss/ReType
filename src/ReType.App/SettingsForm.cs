@@ -73,6 +73,9 @@ public sealed class SettingsForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         MaximizeBox = false;
         MinimizeBox = false;
+        // FixedDialogs are hidden from the taskbar by default; keep the button
+        // so the window is findable even if activation ever fails.
+        ShowInTaskbar = true;
         ClientSize = new Size(540, 464);
 
         // --- Watched folders ---
