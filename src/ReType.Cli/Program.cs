@@ -1,4 +1,5 @@
-﻿using ReType.Converters;
+﻿using System.Diagnostics;
+using ReType.Converters;
 using ReType.Core;
 using ReType.Core.Settings;
 using ReType.Core.Updates;
@@ -145,15 +146,25 @@ internal static class Program
             return 2;
         }
 
-        var current = typeof(Program).Assembly.GetName().Version ?? new Version(0, 0);
         if (release is null)
         {
             Console.WriteLine("No published release found.");
             return 1;
         }
 
+        var installedApp = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "ReType", "ReType.exe");
+
+        // Compare against the installed app when present; the CLI itself may be a dev build.
+        var current = typeof(Program).Assembly.GetName().Version ?? new Version(0, 0);
+        if (File.Exists(installedApp) &&
+            Version.TryParse(FileVersionInfo.GetVersionInfo(installedApp).FileVersion, out var installedVersion))
+        {
+            current = installedVersion;
+        }
+
         Console.WriteLine($"Latest:  {release.TagName} ({release.AssetName})");
-        Console.WriteLine($"Current: {current}");
+        Console.WriteLine($"Current: {current}{(File.Exists(installedApp) ? string.Empty : " (no installed app found)")}");
         if (!UpdateChecker.IsUpdateAvailable(release, current))
         {
             Console.WriteLine("Up to date.");
@@ -171,8 +182,6 @@ internal static class Program
         await checker.DownloadInstallerAsync(release, installerPath);
         Console.WriteLine($"Downloaded to {installerPath}; running silent install...");
 
-        var installedApp = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "ReType", "ReType.exe");
         UpdateApplier.ApplyAndRestart(installerPath, File.Exists(installedApp) ? installedApp : null);
         return 0;
     }

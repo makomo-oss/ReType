@@ -1,6 +1,6 @@
 ; ReType installer (Inno Setup 6). Build with scripts/build-installer.ps1
 #define MyAppName "ReType"
-#define MyAppVersion "0.1.2"
+#define MyAppVersion "0.1.3"
 #define MyAppPublisher "makomo-oss"
 
 [Setup]
@@ -25,8 +25,8 @@ SolidCompression=yes
 CloseApplications=yes
 
 [Tasks]
-Name: "autostart"; Description: "Windows の起動時に ReType を自動的に開始する"
-Name: "desktopicon"; Description: "デスクトップにショートカットを作成する"; Flags: unchecked
+Name: "autostart"; Description: "Windows の起動時に ReType を�E動的に開始すめE
+Name: "desktopicon"; Description: "チE��クトップにショートカチE��を作�Eする"; Flags: unchecked
 
 [Files]
 Source: "..\publish\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion; Excludes: "*.pdb"
@@ -40,7 +40,7 @@ Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: s
     ValueName: "ReType"; ValueData: """{app}\ReType.exe"""; Tasks: autostart; Flags: uninsdeletevalue
 
 [Run]
-Filename: "{app}\ReType.exe"; Description: "ReType を起動する"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\ReType.exe"; Description: "ReType を起動すめE; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 Filename: "{sys}\taskkill.exe"; Parameters: "/IM ReType.exe /F"; Flags: runhidden; RunOnceId: "KillReType"

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\ReType.Core\ReType.Core.csproj" />
@@ -14,9 +14,9 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>ReType</AssemblyName>
     <ApplicationIcon>..\..\assets\app.ico</ApplicationIcon>
-    <Version>0.1.2</Version>
+    <Version>0.1.3</Version>
     <Product>ReType</Product>
-    <Description>ファイルの拡張子を変えるだけのシンプルファイル変換</Description>
+    <Description>�t�@�C���̊g���q��ς��邾���̃V���v���t�@�C���ϊ�</Description>
   </PropertyGroup>
 
   <ItemGroup>
