@@ -23,6 +23,42 @@ public class ConversionQueueTests
 #pragma warning restore xUnit1031
     }
 
+    [Fact]
+    public void DisposeAsync_DoesNotDeadlock_WhenCalledFromSynchronizedThread()
+    {
+        // Regression: TrayContext.RestartWatching disposes the queue while blocking
+        // the WinForms UI thread (which owns a SynchronizationContext). The await
+        // inside DisposeAsync captured that calling context, so its continuation
+        // could only resume on the very thread that was blocked waiting for it.
+        // The freeze was silent: the old watcher/queue were already gone, so later
+        // renames did nothing - no conversion, no balloon notification.
+        var queue = CreateQueueOnNeverPumpingThread();
+
+        var done = new ManualResetEventSlim(false);
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            SynchronizationContext.SetSynchronizationContext(new NeverPumpingContext());
+            try
+            {
+                queue.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+
+            done.Set();
+        })
+        {
+            IsBackground = true,
+        };
+        thread.Start();
+
+        Assert.True(done.Wait(5000), "DisposeAsync deadlocked: its continuation needs the blocked calling thread.");
+        Assert.Null(failure);
+    }
+
     private static ConversionQueue CreateQueueOnNeverPumpingThread()
     {
         ConversionQueue? queue = null;

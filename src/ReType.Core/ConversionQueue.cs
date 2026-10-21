@@ -41,11 +41,14 @@ public sealed class ConversionQueue : IAsyncDisposable
     {
         try
         {
-            await foreach (var decision in _channel.Reader.ReadAllAsync(cancellationToken))
+            // ConfigureAwait(false) everywhere: the queue may be created on the
+            // WinForms UI thread, and its continuations must never require that
+            // thread to pump messages (it blocks while restarting/disposing us).
+            await foreach (var decision in _channel.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
             {
                 try
                 {
-                    await _handler(decision, cancellationToken);
+                    await _handler(decision, cancellationToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -73,7 +76,11 @@ public sealed class ConversionQueue : IAsyncDisposable
         _cts.Cancel();
         try
         {
-            await _worker;
+            // ConfigureAwait(false) is load-bearing: callers dispose us while
+            // blocking their thread (TrayContext.RestartWatching / Dispose run
+            // on the UI thread); resuming this continuation on that thread would
+            // deadlock it.
+            await _worker.ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
