@@ -47,6 +47,7 @@ public class SettingsFormTests
             new Version(1, 0, 0),
             () => Task.FromResult<ReleaseInfo?>(null),
             _ => Task.CompletedTask);
+        form.Show();
 
         var okButton = form.Controls
             .OfType<Button>()
@@ -58,4 +59,47 @@ public class SettingsFormTests
         Assert.True(form.ResultSettings.EnableImageConversions);
         Assert.False(form.ResultAutoStart);
     }
+
+    [Fact]
+    public void OkClick_ClosesTheModelessForm()
+    {
+        // Regression: the form is shown modelessly, where Button.DialogResult alone
+        // does nothing; OK/Cancel must close it explicitly or it can never be
+        // dismissed with the buttons.
+        var form = CreateForm();
+        form.Show();
+        var okButton = form.Controls.OfType<Button>().First(b => b.Text == "OK");
+
+        okButton.PerformClick();
+
+        Assert.Equal(DialogResult.OK, form.DialogResult);
+        Assert.True(form.IsDisposed); // the form closes (and disposes) on OK
+    }
+
+    [Fact]
+    public void CancelClick_ClosesTheFormWithoutCommittingEdits()
+    {
+        var settings = new AppSettings { WatchedFolders = ["C:\\Temp"] };
+        using var form = new SettingsForm(
+            settings,
+            autoStartEnabled: false,
+            new Version(1, 0, 0),
+            () => Task.FromResult<ReleaseInfo?>(null),
+            _ => Task.CompletedTask);
+        form.Show();
+        var cancelButton = form.Controls.OfType<Button>().First(b => b.Text == "キャンセル");
+
+        cancelButton.PerformClick();
+
+        Assert.Equal(DialogResult.Cancel, form.DialogResult);
+        Assert.True(form.IsDisposed);
+        Assert.Same(settings, form.ResultSettings);
+    }
+
+    private static SettingsForm CreateForm() => new(
+        new AppSettings(),
+        autoStartEnabled: false,
+        new Version(1, 0, 0),
+        () => Task.FromResult<ReleaseInfo?>(null),
+        _ => Task.CompletedTask);
 }

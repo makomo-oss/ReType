@@ -123,6 +123,11 @@ public sealed class SettingsForm : Form
         var okButton = new Button { Text = "OK", DialogResult = DialogResult.OK, Location = new Point(332, 434), Size = new Size(90, 28) };
         okButton.Click += OnOk;
         var cancelButton = new Button { Text = "キャンセル", DialogResult = DialogResult.Cancel, Location = new Point(430, 434), Size = new Size(90, 28) };
+        // DialogResult only auto-closes forms shown via ShowDialog; this form is
+        // modeless, so close it ourselves. Button.OnClick has already set
+        // Form.DialogResult by the time the Click event fires, so TrayContext can
+        // still tell OK from Cancel/X in FormClosed.
+        cancelButton.Click += (_, _) => Close();
 
         Controls.AddRange([foldersGroup, categoriesGroup, startupGroup, updateGroup, okButton, cancelButton]);
         AcceptButton = okButton;
@@ -151,6 +156,7 @@ public sealed class SettingsForm : Form
             EnableDocumentConversions = _documents.Checked,
         };
         ResultAutoStart = _autoStart.Checked;
+        Close();
     }
 
     private async void OnCheckUpdateClick(object? sender, EventArgs e)
