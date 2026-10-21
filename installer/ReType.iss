@@ -1,6 +1,10 @@
 ; ReType installer (Inno Setup 6). Build with scripts/build-installer.ps1
 #define MyAppName "ReType"
-#define MyAppVersion "0.0.0" ; placeholder - build-installer.ps1 overrides via /DMyAppVersion from the git tag
+#ifndef MyAppVersion
+  ; placeholder - build-installer.ps1 overrides via /DMyAppVersion from the git tag.
+  ; The #ifndef guard matters: an unconditional #define would clobber the /D value.
+  #define MyAppVersion "0.0.0"
+#endif
 #define MyAppPublisher "makomo-oss"
 
 [Setup]
