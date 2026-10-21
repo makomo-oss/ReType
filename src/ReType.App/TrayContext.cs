@@ -15,7 +15,9 @@ public sealed class TrayContext : ApplicationContext
     private readonly SelfChangeLedger _ledger = new();
     private readonly RenameDetector _detector = new();
     private readonly UpdateChecker _updateChecker = new();
-    private readonly SynchronizationContext? _syncContext = SynchronizationContext.Current;
+    // Captured lazily on the UI thread: the WinForms sync context is only
+    // installed once the message loop starts, i.e. after this constructor runs.
+    private SynchronizationContext? _syncContext;
     private readonly NotifyIcon _notifyIcon;
     private readonly ToolStripMenuItem _updateMenuItem;
     private FileWatcherService? _watcher;
@@ -41,7 +43,7 @@ public sealed class TrayContext : ApplicationContext
         _updateMenuItem.Click += OnUpdateClick;
         menu.Items.Add(_updateMenuItem);
 
-        menu.Items.Add("更新を確認...", null, async (_, _) => await CheckForUpdatesAsync(manual: true));
+        menu.Items.Add("更新を確認...", null, (_, _) => CheckForUpdatesInBackground(manual: true));
 
         var autoStartItem = new ToolStripMenuItem("Windows 起動時に開始")
         {
@@ -62,8 +64,16 @@ public sealed class TrayContext : ApplicationContext
 
         RestartWatching();
 
-        // Background check shortly after startup; silent when up to date.
-        _ = Task.Run(() => CheckForUpdatesAsync(manual: false));
+        // Background check shortly after startup; silent when up to date. Deferred
+        // via a one-shot timer so it runs once the message loop (and with it the
+        // WinForms sync context) is up.
+        var startupUpdateCheck = new System.Windows.Forms.Timer { Interval = 1500 };
+        startupUpdateCheck.Tick += (_, _) =>
+        {
+            startupUpdateCheck.Dispose();
+            CheckForUpdatesInBackground(manual: false);
+        };
+        startupUpdateCheck.Start();
     }
 
     private SettingsForm? _settingsForm;
@@ -175,6 +185,17 @@ public sealed class TrayContext : ApplicationContext
 
     private static Version CurrentVersion =>
         typeof(TrayContext).Assembly.GetName().Version ?? new Version(0, 0);
+
+    /// <summary>
+    /// Kicks off the update check off the UI thread. Must be called on the UI
+    /// thread: the sync context used to marshal the result back is captured here,
+    /// which only works while the message loop is running.
+    /// </summary>
+    private void CheckForUpdatesInBackground(bool manual)
+    {
+        _syncContext ??= SynchronizationContext.Current;
+        _ = Task.Run(() => CheckForUpdatesAsync(manual));
+    }
 
     private async Task CheckForUpdatesAsync(bool manual)
     {
