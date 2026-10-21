@@ -19,7 +19,11 @@ public sealed class ConversionQueue : IAsyncDisposable
     public ConversionQueue(Func<RenameDecision, CancellationToken, Task> handler)
     {
         _handler = handler;
-        _worker = RunAsync(_cts.Token);
+        // Task.Run keeps the worker and its await continuations on the thread pool
+        // even when the queue is created on the WinForms UI thread (which owns a
+        // SynchronizationContext). Without this, disposing the queue while blocking
+        // that thread (TrayContext.RestartWatching / Dispose) deadlocks the UI.
+        _worker = Task.Run(() => RunAsync(_cts.Token));
     }
 
     public void Enqueue(RenameDecision decision)
