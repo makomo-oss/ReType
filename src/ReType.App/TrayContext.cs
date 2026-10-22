@@ -19,7 +19,10 @@ public sealed class TrayContext : ApplicationContext
     // installed once the message loop starts, i.e. after this constructor runs.
     private SynchronizationContext? _syncContext;
     private readonly NotifyIcon _notifyIcon;
+    private readonly Icon _normalIcon;
+    private readonly Icon _pausedIcon;
     private readonly ToolStripMenuItem _updateMenuItem;
+    private ToolStripMenuItem? _pauseMenuItem;
     private FileWatcherService? _watcher;
     private ConversionQueue? _queue;
     private AppSettings _settings;
@@ -29,9 +32,11 @@ public sealed class TrayContext : ApplicationContext
     {
         _settings = _settingsService.Load();
 
+        _normalIcon = LoadTrayIcon();
+        _pausedIcon = CreatePausedIcon(_normalIcon);
         _notifyIcon = new NotifyIcon
         {
-            Icon = LoadTrayIcon(),
+            Icon = _normalIcon,
             Text = "ReType",
             Visible = true,
         };
@@ -55,6 +60,10 @@ public sealed class TrayContext : ApplicationContext
             autoStartItem.Checked = AutoStart.IsEnabled;
         };
         menu.Items.Add(autoStartItem);
+
+        _pauseMenuItem = new ToolStripMenuItem("監視を一時停止") { CheckOnClick = true };
+        _pauseMenuItem.CheckedChanged += (_, _) => ApplyPausedState();
+        menu.Items.Add(_pauseMenuItem);
 
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("終了", null, (_, _) => ExitThread());
@@ -277,6 +286,23 @@ public sealed class TrayContext : ApplicationContext
         ExitThread();
     }
 
+    /// <summary>
+    /// Applies the pause checkbox: renames are dropped while paused (watchers
+    /// stay alive for instant resume) and the icon turns grayscale with a
+    /// pause badge so the state is visible at a glance.
+    /// </summary>
+    private void ApplyPausedState()
+    {
+        var paused = _pauseMenuItem!.Checked;
+        if (_watcher is not null)
+        {
+            _watcher.Paused = paused;
+        }
+
+        _notifyIcon.Icon = paused ? _pausedIcon : _normalIcon;
+        _notifyIcon.Text = paused ? "ReType（監視一時停止中）" : "ReType";
+    }
+
     private void RestartWatching()
     {
         _watcher?.Dispose();
@@ -285,7 +311,7 @@ public sealed class TrayContext : ApplicationContext
         var reporter = new BalloonReporter(_notifyIcon);
         var service = new ConversionService(CreateConverters(_settings), _ledger, reporter);
         _queue = new ConversionQueue(service.ProcessRenameAsync);
-        _watcher = new FileWatcherService(_ledger);
+        _watcher = new FileWatcherService(_ledger) { Paused = _pauseMenuItem?.Checked == true };
         _watcher.ExternalRenameDetected += (oldPath, newPath) => _queue.Enqueue(_detector.Detect(oldPath, newPath));
         _watcher.Watch(_settings.WatchedFolders, _settings.IncludeSubdirectories);
     }
@@ -302,6 +328,47 @@ public sealed class TrayContext : ApplicationContext
         }
 
         return SystemIcons.Application;
+    }
+
+    /// <summary>
+    /// Grayscale copy of the tray icon with a small pause badge, built once at
+    /// startup. The HICON from GetHicon is never destroyed; it lives as long as
+    /// the process, which is fine for a single generated icon.
+    /// </summary>
+    private static Icon CreatePausedIcon(Icon source)
+    {
+        using var original = source.ToBitmap();
+        var gray = new Bitmap(original.Width, original.Height);
+        using (var g = Graphics.FromImage(gray))
+        {
+            var matrix = new System.Drawing.Imaging.ColorMatrix([
+                [0.30f, 0.30f, 0.30f, 0, 0],
+                [0.59f, 0.59f, 0.59f, 0, 0],
+                [0.11f, 0.11f, 0.11f, 0, 0],
+                [0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 1],
+            ]);
+            var attrs = new System.Drawing.Imaging.ImageAttributes();
+            attrs.SetColorMatrix(matrix);
+            g.DrawImage(
+                original,
+                new Rectangle(0, 0, gray.Width, gray.Height),
+                0, 0, original.Width, original.Height,
+                GraphicsUnit.Pixel, attrs);
+        }
+
+        // Pause badge: two light bars on a dark chip, bottom-right corner.
+        using (var g = Graphics.FromImage(gray))
+        {
+            var size = Math.Max(8, gray.Width / 2);
+            var left = gray.Width - size;
+            var top = gray.Height - size;
+            g.FillRectangle(Brushes.DimGray, left, top, size, size);
+            g.FillRectangle(Brushes.White, left + size / 4 - 1, top + size / 4, Math.Max(1, size / 6), size / 2);
+            g.FillRectangle(Brushes.White, left + 3 * size / 4 - 1, top + size / 4, Math.Max(1, size / 6), size / 2);
+        }
+
+        return Icon.FromHandle(gray.GetHicon());
     }
 
     private static IReadOnlyList<IConverter> CreateConverters(AppSettings settings)

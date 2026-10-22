@@ -18,6 +18,13 @@ public sealed class FileWatcherService : IDisposable
     /// <summary>Raised with (oldPath, newPath) for every external rename.</summary>
     public event Action<string, string>? ExternalRenameDetected;
 
+    /// <summary>
+    /// While true, rename events are dropped instead of raised. The watchers
+    /// stay alive so resuming is instant; renames made while paused are not
+    /// replayed.
+    /// </summary>
+    public bool Paused { get; set; }
+
     public void Watch(IEnumerable<string> folders, bool includeSubdirectories)
     {
         foreach (var folder in folders)
@@ -40,7 +47,7 @@ public sealed class FileWatcherService : IDisposable
 
     private void OnRenamed(string oldPath, string newPath)
     {
-        if (_disposed)
+        if (_disposed || Paused)
         {
             return;
         }
