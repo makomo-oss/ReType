@@ -63,15 +63,25 @@ public sealed class ConversionService
             return;
         }
 
-        if (!await WaitForFileReadyAsync(target, cancellationToken))
+        var readiness = await WaitForFileReadyAsync(target, cancellationToken);
+        if (readiness != FileReadiness.Ready)
         {
+            var reason = readiness == FileReadiness.Missing
+                ? "ファイルが見つかりません"
+                : "ファイルが他のプログラムによってロックされています";
             var rolledBack = RestoreOriginalName(decision);
-            _reporter.ConversionFailed(decision, "ファイルが他のプログラムによってロックされています", rolledBack);
+            _reporter.ConversionFailed(decision, reason, rolledBack);
             return;
         }
 
-        var directory = Path.GetDirectoryName(target)
-            ?? throw new ConversionFailedException("変換先フォルダを特定できません");
+        var directory = Path.GetDirectoryName(target);
+        if (directory is null)
+        {
+            // Was a throw before: the queue swallowed it and no balloon appeared.
+            var rolledBack = RestoreOriginalName(decision);
+            _reporter.ConversionFailed(decision, "変換先フォルダを特定できません", rolledBack);
+            return;
+        }
         // The temp name keeps the target extension so content-based tools
         // (ffmpeg, pandoc) can infer the output format; the ledger prevents loops.
         var tempPath = Path.Combine(directory, $"retype-{Guid.NewGuid():N}{decision.ToExtension}");
@@ -135,11 +145,18 @@ public sealed class ConversionService
         }
     }
 
+    private enum FileReadiness
+    {
+        Ready,
+        Missing,
+        Locked,
+    }
+
     /// <summary>
     /// Waits until the file can be opened exclusively, giving Explorer and
     /// preview handlers time to release their handles after the rename.
     /// </summary>
-    private async Task<bool> WaitForFileReadyAsync(string path, CancellationToken cancellationToken)
+    private async Task<FileReadiness> WaitForFileReadyAsync(string path, CancellationToken cancellationToken)
     {
         var deadline = DateTime.UtcNow + _fileReadyTimeout;
         while (true)
@@ -147,11 +164,11 @@ public sealed class ConversionService
             try
             {
                 using var stream = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-                return true;
+                return FileReadiness.Ready;
             }
             catch (FileNotFoundException)
             {
-                return false;
+                return FileReadiness.Missing;
             }
             catch (IOException) when (DateTime.UtcNow < deadline)
             {
@@ -159,7 +176,7 @@ public sealed class ConversionService
             }
             catch (IOException)
             {
-                return false;
+                return FileReadiness.Locked;
             }
         }
     }

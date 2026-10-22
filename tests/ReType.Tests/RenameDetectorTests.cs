@@ -88,6 +88,26 @@ public class RenameDetectorTests
     }
 
     [Fact]
+    public void HiddenExtensionPattern_CrossCategoryStem_IsUnsupported()
+    {
+        // With extensions hidden, renaming song.jpg to "song.mp3" yields song.mp3.jpg
+        // on disk. Both formats are ones ReType knows, so this must surface as
+        // unsupported (rollback + notification) instead of passing silently.
+        var decision = Detector.Detect(@"C:\t\song.jpg", @"C:\t\song.mp3.jpg");
+        Assert.Equal(RenameDecisionKind.Unsupported, decision.Kind);
+        Assert.Equal(".jpg", decision.FromExtension);
+        Assert.Equal(".mp3", decision.ToExtension);
+    }
+
+    [Theory]
+    [InlineData(@"C:\t\photo.jpg", @"C:\t\photo.jpg.jpg")]  // deliberate double extension
+    [InlineData(@"C:\t\photo.jpg", @"C:\t\photo.jpeg.jpg")] // alias of the real extension
+    public void HiddenExtensionPattern_StemMatchesRealExtension_IsIgnored(string oldPath, string newPath)
+    {
+        Assert.Equal(RenameDecisionKind.Ignore, Detector.Detect(oldPath, newPath).Kind);
+    }
+
+    [Fact]
     public void AudioContainerChange_Converts()
     {
         var decision = Detector.Detect(@"C:\t\song.wav", @"C:\t\song.mp3");

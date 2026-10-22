@@ -117,6 +117,45 @@ public sealed class ConversionServiceTests : IDisposable
         Assert.Equal("CONVERTED", File.ReadAllText(newPath));
     }
 
+    [Fact]
+    public async Task HiddenExtensionUnsupportedRename_RestoresOriginalName()
+    {
+        // Extensions hidden: "song.jpg" renamed to "song.mp3" yields song.mp3.jpg on disk.
+        var oldPath = CreateFile("song.jpg", "ORIGINAL");
+        var newPath = Path.Combine(_dir, "song.mp3.jpg");
+        File.Move(oldPath, newPath);
+
+        var service = MakeService(new FakeConverter(canConvert: true, produce: "x"));
+        var decision = new RenameDetector().Detect(oldPath, newPath);
+        Assert.Equal(RenameDecisionKind.Unsupported, decision.Kind);
+
+        await service.ProcessRenameAsync(decision, CancellationToken.None);
+
+        Assert.True(File.Exists(oldPath));
+        Assert.False(File.Exists(newPath));
+    }
+
+    [Fact]
+    public async Task FileVanishedBeforeProcessing_ReportsNotFound()
+    {
+        var oldPath = CreateFile("photo.jpg", "ORIGINAL");
+        var newPath = Path.Combine(_dir, "photo.webp");
+        File.Move(oldPath, newPath);
+        File.Delete(newPath); // vanished before the queue got to it
+
+        var reporter = new RecordingReporter();
+        var service = new ConversionService(
+            [new FakeConverter(canConvert: true, produce: "x")],
+            new SelfChangeLedger(),
+            reporter,
+            TimeSpan.FromMilliseconds(200));
+        var decision = new RenameDetector().Detect(oldPath, newPath);
+
+        await service.ProcessRenameAsync(decision, CancellationToken.None);
+
+        Assert.Contains(reporter.Failures, f => f.Reason == "ファイルが見つかりません");
+    }
+
     private static ConversionService MakeService(IConverter converter) =>
         new([converter], new SelfChangeLedger(), NullConversionReporter.Instance, TimeSpan.FromMilliseconds(500));
 
@@ -145,6 +184,26 @@ public sealed class ConversionServiceTests : IDisposable
 
             File.WriteAllText(outputPath, _produce ?? "OUTPUT");
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class RecordingReporter : IConversionReporter
+    {
+        public List<(string Reason, bool RolledBack)> Failures { get; } = [];
+
+        public void ConversionStarted(RenameDecision decision)
+        {
+        }
+
+        public void ConversionSucceeded(RenameDecision decision, string outputPath)
+        {
+        }
+
+        public void ConversionFailed(RenameDecision decision, string reason, bool rolledBack) =>
+            Failures.Add((reason, rolledBack));
+
+        public void ConversionUnsupported(RenameDecision decision)
+        {
         }
     }
 }

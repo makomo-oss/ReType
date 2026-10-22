@@ -68,6 +68,18 @@ public sealed class RenameDetector
                 return new RenameDecision(RenameDecisionKind.Convert, oldPath, newPath, oldExt, stemExt);
             }
 
+            // Same "unsupported but both known" rule as the visible-extension case:
+            // renaming "song.jpg" to "song.mp3" with extensions hidden yields
+            // "song.mp3.jpg" on disk and must not pass silently.
+            if (stemExt.Length > 0
+                && stemExt != oldExt
+                && !ConversionMatrix.IsSameFormat(oldExt, stemExt)
+                && ConversionMatrix.CategoryOf(oldExt) is not null
+                && ConversionMatrix.CategoryOf(stemExt) is not null)
+            {
+                return new RenameDecision(RenameDecisionKind.Unsupported, oldPath, newPath, oldExt, stemExt);
+            }
+
             return RenameDecision.Ignore(oldPath, newPath);
         }
 
