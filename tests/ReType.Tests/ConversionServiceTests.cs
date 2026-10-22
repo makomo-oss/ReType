@@ -176,8 +176,116 @@ public sealed class ConversionServiceTests : IDisposable
         Assert.Contains(50.0, reporter.ProgressTicks);
     }
 
-    private static ConversionService MakeService(IConverter converter) =>
-        new([converter], new SelfChangeLedger(), NullConversionReporter.Instance, TimeSpan.FromMilliseconds(500));
+    [Fact]
+    public async Task Outcomes_AreRecordedInHistory()
+    {
+        var historyPath = Path.Combine(_dir, "history.json");
+        var history = new ConversionHistoryStore(historyPath);
+
+        // Success.
+        var okOld = CreateFile("ok.jpg", "x");
+        var okNew = Path.Combine(_dir, "ok.webp");
+        File.Move(okOld, okNew);
+        var service = MakeService(new FakeConverter(canConvert: true, produce: "y"), history);
+        await service.ProcessRenameAsync(new RenameDetector().Detect(okOld, okNew), CancellationToken.None);
+
+        // Failure.
+        var badOld = CreateFile("bad.jpg", "x");
+        var badNew = Path.Combine(_dir, "bad.webp");
+        File.Move(badOld, badNew);
+        var failing = MakeService(new FakeConverter(canConvert: true, fail: true), history);
+        await failing.ProcessRenameAsync(new RenameDetector().Detect(badOld, badNew), CancellationToken.None);
+
+        var entries = history.Load();
+        Assert.Contains(entries, e => e.Outcome == ConversionOutcome.Failed);
+        Assert.Contains(entries, e => e.Outcome == ConversionOutcome.Succeeded && e.NewPath == okNew);
+        // Newest first.
+        Assert.Equal(ConversionOutcome.Failed, entries[0].Outcome);
+    }
+
+    [Fact]
+    public async Task UndoAsync_ConvertsBackAndRestoresOriginalName()
+    {
+        var historyPath = Path.Combine(_dir, "history.json");
+        var history = new ConversionHistoryStore(historyPath);
+
+        var oldPath = CreateFile("photo.jpg", "ORIGINAL");
+        var newPath = Path.Combine(_dir, "photo.webp");
+        File.Move(oldPath, newPath);
+
+        var service = MakeService(new FakeConverter(canConvert: true, produce: "CONVERTED"), history);
+        var decision = new RenameDetector().Detect(oldPath, newPath);
+        await service.ProcessRenameAsync(decision, CancellationToken.None);
+        var entry = history.Load().Single(e => e.Outcome == ConversionOutcome.Succeeded);
+
+        var error = await service.UndoAsync(entry, CancellationToken.None);
+
+        Assert.Null(error);
+        Assert.True(File.Exists(oldPath));
+        Assert.False(File.Exists(newPath));
+        Assert.Contains(history.Load(), e => e.Outcome == ConversionOutcome.Undone);
+    }
+
+    [Fact]
+    public async Task UndoAsync_MissingFileReportsReason()
+    {
+        var history = new ConversionHistoryStore(Path.Combine(_dir, "history.json"));
+        var service = MakeService(new FakeConverter(canConvert: true, produce: "x"), history);
+        var entry = new ConversionEntry(
+            DateTimeOffset.Now,
+            Path.Combine(_dir, "gone.jpg"),
+            Path.Combine(_dir, "gone.webp"),
+            ".jpg",
+            ".webp",
+            ConversionOutcome.Succeeded);
+
+        var error = await service.UndoAsync(entry, CancellationToken.None);
+
+        Assert.Contains("見つかりません", error);
+    }
+
+    [Fact]
+    public async Task ConvertInPlaceAsync_ReplacesFileWithConvertedContent()
+    {
+        var oldPath = CreateFile("photo.jpg", "ORIGINAL");
+
+        var service = MakeService(new FakeConverter(canConvert: true, produce: "CONVERTED"));
+        var error = await service.ConvertInPlaceAsync(oldPath, ".webp", CancellationToken.None);
+
+        Assert.Null(error);
+        Assert.False(File.Exists(oldPath));
+        var newPath = Path.Combine(_dir, "photo.webp");
+        Assert.True(File.Exists(newPath));
+        Assert.Equal("CONVERTED", File.ReadAllText(newPath));
+    }
+
+    [Fact]
+    public async Task ConvertInPlaceAsync_UnsupportedPair_LeavesFileAlone()
+    {
+        var path = CreateFile("photo.jpg", "ORIGINAL");
+
+        var service = MakeService(new FakeConverter(canConvert: true, produce: "x"));
+        var error = await service.ConvertInPlaceAsync(path, ".mp3", CancellationToken.None);
+
+        Assert.Contains("未対応", error);
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
+    public async Task ConvertInPlaceAsync_ExistingTarget_ReportsConflict()
+    {
+        var oldPath = CreateFile("photo.jpg", "ORIGINAL");
+        CreateFile("photo.webp", "EXISTING");
+
+        var service = MakeService(new FakeConverter(canConvert: true, produce: "x"));
+        var error = await service.ConvertInPlaceAsync(oldPath, ".webp", CancellationToken.None);
+
+        Assert.Contains("既に存在", error);
+        Assert.Equal("ORIGINAL", File.ReadAllText(oldPath));
+    }
+
+    private static ConversionService MakeService(IConverter converter, ConversionHistoryStore? history = null) =>
+        new([converter], new SelfChangeLedger(), NullConversionReporter.Instance, TimeSpan.FromMilliseconds(500), history);
 
     private sealed class FakeConverter : IConverter
     {
@@ -193,7 +301,8 @@ public sealed class ConversionServiceTests : IDisposable
         }
 
         public bool CanConvert(string fromExt, string toExt) =>
-            _canConvert && fromExt == ".jpg" && toExt == ".webp";
+            _canConvert &&
+            ((fromExt == ".jpg" && toExt == ".webp") || (fromExt == ".webp" && toExt == ".jpg"));
 
         public Task ConvertAsync(string inputPath, string fromExt, string toExt, string outputPath, CancellationToken cancellationToken)
         {

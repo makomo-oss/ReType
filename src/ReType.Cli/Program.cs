@@ -107,7 +107,7 @@ internal static class Program
 
         var ledger = new SelfChangeLedger();
         var service = new ConversionService(CreateConverters(), ledger, new ConsoleReporter());
-        await using var queue = new ConversionQueue(service.ProcessRenameAsync);
+        await using var queue = new ConversionQueue((decision, ct) => service.ProcessRenameAsync(decision, ct));
         var detector = new RenameDetector();
 
         using var watcher = new FileWatcherService(ledger);

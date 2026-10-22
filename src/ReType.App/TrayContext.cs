@@ -25,6 +25,8 @@ public sealed class TrayContext : ApplicationContext
     private ToolStripMenuItem? _pauseMenuItem;
     private FileWatcherService? _watcher;
     private ConversionQueue? _queue;
+    private ConversionService? _service;
+    private readonly ConversionHistoryStore _history = new();
     private AppSettings _settings;
     private ReleaseInfo? _availableUpdate;
 
@@ -43,6 +45,7 @@ public sealed class TrayContext : ApplicationContext
 
         var menu = new ContextMenuStrip();
         menu.Items.Add("設定...", null, (_, _) => ShowSettings());
+        menu.Items.Add("ファイルをドロップ...", null, (_, _) => ShowDropForm());
 
         _updateMenuItem = new ToolStripMenuItem { Visible = false };
         _updateMenuItem.Click += OnUpdateClick;
@@ -86,6 +89,29 @@ public sealed class TrayContext : ApplicationContext
     }
 
     private SettingsForm? _settingsForm;
+    private DropForm? _dropForm;
+
+    /// <summary>Singleton drop window; conversions run through the live service.</summary>
+    private void ShowDropForm()
+    {
+        if (_dropForm is { IsDisposed: false })
+        {
+            RaiseAboveTray(_dropForm);
+            return;
+        }
+
+        var form = new DropForm((path, toExt) =>
+            _service?.ConvertInPlaceAsync(path, toExt, CancellationToken.None)
+            ?? Task.FromResult<string?>("アプリの準備ができていません"));
+        _dropForm = form;
+        form.FormClosed += (_, _) =>
+        {
+            _dropForm = null;
+            form.Dispose();
+        };
+        form.Show();
+        RaiseAboveTray(form);
+    }
 
     private void ShowSettings()
     {
@@ -102,7 +128,9 @@ public sealed class TrayContext : ApplicationContext
             AutoStart.IsEnabled,
             CurrentVersion,
             () => _updateChecker.GetLatestReleaseAsync(),
-            ApplyUpdateAsync);
+            ApplyUpdateAsync,
+            _history,
+            entry => _service?.UndoAsync(entry, CancellationToken.None) ?? Task.FromResult<string?>("アプリの準備ができていません"));
         _settingsForm = form;
         form.FormClosed += (_, _) =>
         {
@@ -312,8 +340,9 @@ public sealed class TrayContext : ApplicationContext
         _queue?.DisposeAsync().AsTask().GetAwaiter().GetResult();
 
         var reporter = new BalloonReporter(_notifyIcon, () => IdleIconText);
-        var service = new ConversionService(CreateConverters(_settings), _ledger, reporter);
-        _queue = new ConversionQueue(service.ProcessRenameAsync);
+        var service = new ConversionService(CreateConverters(_settings), _ledger, reporter, null, _history);
+        _service = service;
+        _queue = new ConversionQueue((decision, ct) => service.ProcessRenameAsync(decision, ct));
         _watcher = new FileWatcherService(_ledger) { Paused = _pauseMenuItem?.Checked == true };
         _watcher.ExternalRenameDetected += (oldPath, newPath) => _queue.Enqueue(_detector.Detect(oldPath, newPath));
         _watcher.Watch(_settings.WatchedFolders, _settings.IncludeSubdirectories);
