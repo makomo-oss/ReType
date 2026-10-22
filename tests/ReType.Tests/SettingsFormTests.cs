@@ -96,6 +96,26 @@ public class SettingsFormTests
         Assert.Same(settings, form.ResultSettings);
     }
 
+    [Fact]
+    public void CategorySection_ListsSupportedFormats()
+    {
+        // The UI must show what each category accepts, straight from the
+        // ConversionMatrix so the two can never drift apart.
+        using var form = CreateForm();
+
+        var texts = form.Controls.Cast<Control>()
+            .SelectMany(c => c.Controls.Cast<Control>())
+            .OfType<Label>()
+            .Select(l => l.Text)
+            .ToList();
+
+        Assert.Contains(texts, t => t.StartsWith("画像:") && t.Contains("webp") && t.Contains("png"));
+        Assert.Contains(texts, t => t.StartsWith("動画:") && t.Contains("mp4") && t.Contains("mkv"));
+        Assert.Contains(texts, t => t.StartsWith("音声:") && t.Contains("flac"));
+        Assert.Contains(texts, t => t.StartsWith("文書:") && t.Contains("docx"));
+        Assert.Contains(texts, t => t.Contains("カテゴリをまたぐ変換"));
+    }
+
     private static SettingsForm CreateForm() => new(
         new AppSettings(),
         autoStartEnabled: false,

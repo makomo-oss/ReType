@@ -1,3 +1,4 @@
+using ReType.Core;
 using ReType.Core.Settings;
 using ReType.Core.Updates;
 
@@ -76,7 +77,7 @@ public sealed class SettingsForm : Form
         // FixedDialogs are hidden from the taskbar by default; keep the button
         // so the window is findable even if activation ever fails.
         ShowInTaskbar = true;
-        ClientSize = new Size(540, 464);
+        ClientSize = new Size(540, 544);
 
         // --- Watched folders ---
         var foldersGroup = new GroupBox { Text = "監視フォルダ", Location = new Point(12, 8), Size = new Size(516, 210) };
@@ -100,29 +101,45 @@ public sealed class SettingsForm : Form
         foldersGroup.Controls.AddRange([_folderList, addButton, removeButton, _subdirectories]);
 
         // --- Categories ---
-        var categoriesGroup = new GroupBox { Text = "変換カテゴリ", Location = new Point(12, 224), Size = new Size(516, 52) };
+        var categoriesGroup = new GroupBox { Text = "変換カテゴリ", Location = new Point(12, 224), Size = new Size(516, 132) };
         _images.Checked = settings.EnableImageConversions;
         _video.Checked = settings.EnableVideoConversions;
         _audio.Checked = settings.EnableAudioConversions;
         _documents.Checked = settings.EnableDocumentConversions;
         categoriesGroup.Controls.AddRange([_images, _video, _audio, _documents]);
 
+        // Show what each category actually accepts, generated from the same
+        // table the detector consults so the UI can never drift from it.
+        categoriesGroup.Controls.AddRange([
+            new Label { Text = "画像: " + FormatFormats(ConversionMatrix.ImageFormats), Location = new Point(14, 50), AutoSize = true },
+            new Label { Text = "動画: " + FormatFormats(ConversionMatrix.VideoFormats), Location = new Point(14, 66), AutoSize = true },
+            new Label { Text = "音声: " + FormatFormats(ConversionMatrix.AudioFormats), Location = new Point(14, 82), AutoSize = true },
+            new Label { Text = "文書: " + FormatFormats(ConversionMatrix.DocumentFormats), Location = new Point(14, 98), AutoSize = true },
+            new Label
+            {
+                Text = "カテゴリをまたぐ変換（画像→音声など）は未対応です",
+                Location = new Point(14, 116),
+                AutoSize = true,
+                ForeColor = SystemColors.GrayText,
+            },
+        ]);
+
         // --- Startup ---
-        var startupGroup = new GroupBox { Text = "起動", Location = new Point(12, 282), Size = new Size(516, 50) };
+        var startupGroup = new GroupBox { Text = "起動", Location = new Point(12, 362), Size = new Size(516, 50) };
         _autoStart.Checked = autoStartEnabled;
         startupGroup.Controls.Add(_autoStart);
 
         // --- Version and updates ---
-        var updateGroup = new GroupBox { Text = "バージョンとアップデート", Location = new Point(12, 338), Size = new Size(516, 92) };
+        var updateGroup = new GroupBox { Text = "バージョンとアップデート", Location = new Point(12, 418), Size = new Size(516, 92) };
         _versionLabel.Text = $"現在のバージョン: {_currentVersion}";
         _checkUpdateButton.Click += OnCheckUpdateClick;
         _updateButton.Click += OnUpdateClick;
         updateGroup.Controls.AddRange([_versionLabel, _checkUpdateButton, _updateStatus, _updateButton]);
 
         // --- Dialog buttons ---
-        var okButton = new Button { Text = "OK", DialogResult = DialogResult.OK, Location = new Point(332, 434), Size = new Size(90, 28) };
+        var okButton = new Button { Text = "OK", DialogResult = DialogResult.OK, Location = new Point(332, 514), Size = new Size(90, 28) };
         okButton.Click += OnOk;
-        var cancelButton = new Button { Text = "キャンセル", DialogResult = DialogResult.Cancel, Location = new Point(430, 434), Size = new Size(90, 28) };
+        var cancelButton = new Button { Text = "キャンセル", DialogResult = DialogResult.Cancel, Location = new Point(430, 514), Size = new Size(90, 28) };
         // DialogResult only auto-closes forms shown via ShowDialog; this form is
         // modeless, so close it ourselves. Button.OnClick has already set
         // Form.DialogResult by the time the Click event fires, so TrayContext can
@@ -133,6 +150,9 @@ public sealed class SettingsForm : Form
         AcceptButton = okButton;
         CancelButton = cancelButton;
     }
+
+    private static string FormatFormats(IReadOnlyList<string> extensions) =>
+        string.Join(" / ", extensions.Select(e => e.TrimStart('.')));
 
     private void OnAddFolder(object? sender, EventArgs e)
     {
