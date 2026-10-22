@@ -47,10 +47,38 @@ public sealed class SettingsForm : Form
         Size = new Size(110, 28),
         Visible = false,
     };
+    private readonly ListView _historyList = new()
+    {
+        Location = new Point(12, 22),
+        Size = new Size(400, 116),
+        View = View.Details,
+        FullRowSelect = true,
+        HideSelection = false,
+        MultiSelect = false,
+    };
+    private readonly Button _undoButton = new()
+    {
+        Text = "元に戻す",
+        Location = new Point(420, 22),
+        Size = new Size(86, 28),
+    };
+    private readonly Button _clearHistoryButton = new()
+    {
+        Text = "履歴を消去",
+        Location = new Point(420, 54),
+        Size = new Size(86, 28),
+    };
+    private readonly Label _historyStatus = new()
+    {
+        Location = new Point(12, 144),
+        AutoSize = true,
+    };
 
     private readonly Func<Task<ReleaseInfo?>> _checkForUpdates;
     private readonly Func<ReleaseInfo, Task> _applyUpdate;
     private readonly Version _currentVersion;
+    private readonly ConversionHistoryStore? _history;
+    private readonly Func<ConversionEntry, Task<string?>>? _undoHandler;
     private ReleaseInfo? _availableUpdate;
 
     public AppSettings ResultSettings { get; private set; }
@@ -61,13 +89,17 @@ public sealed class SettingsForm : Form
         bool autoStartEnabled,
         Version currentVersion,
         Func<Task<ReleaseInfo?>> checkForUpdates,
-        Func<ReleaseInfo, Task> applyUpdate)
+        Func<ReleaseInfo, Task> applyUpdate,
+        ConversionHistoryStore? history = null,
+        Func<ConversionEntry, Task<string?>>? undoHandler = null)
     {
         ResultSettings = settings;
         ResultAutoStart = autoStartEnabled;
         _currentVersion = currentVersion;
         _checkForUpdates = checkForUpdates;
         _applyUpdate = applyUpdate;
+        _history = history;
+        _undoHandler = undoHandler;
 
         Text = "ReType 設定";
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -136,19 +168,96 @@ public sealed class SettingsForm : Form
         _updateButton.Click += OnUpdateClick;
         updateGroup.Controls.AddRange([_versionLabel, _checkUpdateButton, _updateStatus, _updateButton]);
 
+        // --- Conversion history (optional; hidden for hosts without a store) ---
+        Control? historyGroup = null;
+        if (_history is not null)
+        {
+            historyGroup = new GroupBox { Text = "最近の変換", Location = new Point(12, 516), Size = new Size(516, 170) };
+            _historyList.Columns.Add("日時", 90);
+            _historyList.Columns.Add("ファイル", 210);
+            _historyList.Columns.Add("結果", 90);
+            PopulateHistory();
+            _undoButton.Click += OnUndoClick;
+            _clearHistoryButton.Click += (_, _) =>
+            {
+                _history.Clear();
+                _historyList.Items.Clear();
+                _historyStatus.Text = "履歴を消去しました";
+            };
+            historyGroup.Controls.AddRange([_historyList, _undoButton, _clearHistoryButton, _historyStatus]);
+        }
+
+        var formHeight = historyGroup is null ? 544 : 700;
+        ClientSize = new Size(540, formHeight);
+
         // --- Dialog buttons ---
-        var okButton = new Button { Text = "OK", DialogResult = DialogResult.OK, Location = new Point(332, 514), Size = new Size(90, 28) };
+        var okButton = new Button { Text = "OK", DialogResult = DialogResult.OK, Location = new Point(332, formHeight - 30), Size = new Size(90, 28) };
         okButton.Click += OnOk;
-        var cancelButton = new Button { Text = "キャンセル", DialogResult = DialogResult.Cancel, Location = new Point(430, 514), Size = new Size(90, 28) };
+        var cancelButton = new Button { Text = "キャンセル", DialogResult = DialogResult.Cancel, Location = new Point(430, formHeight - 30), Size = new Size(90, 28) };
         // DialogResult only auto-closes forms shown via ShowDialog; this form is
         // modeless, so close it ourselves. Button.OnClick has already set
         // Form.DialogResult by the time the Click event fires, so TrayContext can
         // still tell OK from Cancel/X in FormClosed.
         cancelButton.Click += (_, _) => Close();
 
-        Controls.AddRange([foldersGroup, categoriesGroup, startupGroup, updateGroup, okButton, cancelButton]);
+        Controls.AddRange(historyGroup is null
+            ? [foldersGroup, categoriesGroup, startupGroup, updateGroup, okButton, cancelButton]
+            : [foldersGroup, categoriesGroup, startupGroup, updateGroup, historyGroup, okButton, cancelButton]);
         AcceptButton = okButton;
         CancelButton = cancelButton;
+    }
+
+    private void PopulateHistory()
+    {
+        _historyList.Items.Clear();
+        foreach (var entry in _history!.Load())
+        {
+            var item = new ListViewItem(entry.Timestamp.ToString("MM-dd HH:mm"));
+            item.SubItems.Add(Path.GetFileName(entry.NewPath));
+            item.SubItems.Add(entry.Outcome switch
+            {
+                ConversionOutcome.Succeeded => "完了",
+                ConversionOutcome.Failed => "失敗",
+                ConversionOutcome.Unsupported => "未対応",
+                ConversionOutcome.Undone => "元に戻した",
+                _ => entry.Outcome.ToString(),
+            });
+            if (entry.Reason is { Length: > 0 } reason)
+            {
+                item.ToolTipText = reason;
+            }
+
+            item.Tag = entry;
+            _historyList.Items.Add(item);
+        }
+    }
+
+    private async void OnUndoClick(object? sender, EventArgs e)
+    {
+        if (_undoHandler is null || _historyList.SelectedItems.Count == 0)
+        {
+            return;
+        }
+
+        var entry = (ConversionEntry)_historyList.SelectedItems[0].Tag!;
+        _undoButton.Enabled = false;
+        _clearHistoryButton.Enabled = false;
+        _historyStatus.Text = "元に戻しています...";
+        try
+        {
+            var error = await _undoHandler(entry);
+            _historyStatus.Text = error ?? "元に戻しました（ロスレスでない形式は再エンコードされています）";
+            PopulateHistory();
+        }
+        catch (Exception ex)
+        {
+            _historyStatus.Text = $"元に戻せませんでした: {ex.Message}";
+        }
+        finally
+        {
+            _undoButton.Enabled = true;
+            _clearHistoryButton.Enabled = true;
+        }
     }
 
     private static string FormatFormats(IReadOnlyList<string> extensions) =>
