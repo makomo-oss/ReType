@@ -156,6 +156,26 @@ public sealed class ConversionServiceTests : IDisposable
         Assert.Contains(reporter.Failures, f => f.Reason == "ファイルが見つかりません");
     }
 
+    [Fact]
+    public async Task ConverterProgress_IsForwardedToReporter()
+    {
+        var oldPath = CreateFile("photo.jpg", "ORIGINAL");
+        var newPath = Path.Combine(_dir, "photo.webp");
+        File.Move(oldPath, newPath);
+
+        var reporter = new RecordingReporter();
+        var service = new ConversionService(
+            [new FakeConverter(canConvert: true, produce: "CONVERTED")],
+            new SelfChangeLedger(),
+            reporter,
+            TimeSpan.FromMilliseconds(500));
+        var decision = new RenameDetector().Detect(oldPath, newPath);
+
+        await service.ProcessRenameAsync(decision, CancellationToken.None);
+
+        Assert.Contains(50.0, reporter.ProgressTicks);
+    }
+
     private static ConversionService MakeService(IConverter converter) =>
         new([converter], new SelfChangeLedger(), NullConversionReporter.Instance, TimeSpan.FromMilliseconds(500));
 
@@ -185,11 +205,20 @@ public sealed class ConversionServiceTests : IDisposable
             File.WriteAllText(outputPath, _produce ?? "OUTPUT");
             return Task.CompletedTask;
         }
+
+        public Task ConvertAsync(
+            string inputPath, string fromExt, string toExt, string outputPath,
+            IProgress<ConversionProgress>? progress, CancellationToken cancellationToken)
+        {
+            progress?.Report(new ConversionProgress(50));
+            return ConvertAsync(inputPath, fromExt, toExt, outputPath, cancellationToken);
+        }
     }
 
     private sealed class RecordingReporter : IConversionReporter
     {
         public List<(string Reason, bool RolledBack)> Failures { get; } = [];
+        public List<double?> ProgressTicks { get; } = [];
 
         public void ConversionStarted(RenameDecision decision)
         {
@@ -205,5 +234,8 @@ public sealed class ConversionServiceTests : IDisposable
         public void ConversionUnsupported(RenameDecision decision)
         {
         }
+
+        public void ConversionProgress(RenameDecision decision, double? percent) =>
+            ProgressTicks.Add(percent);
     }
 }

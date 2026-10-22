@@ -11,6 +11,14 @@ public interface IConversionReporter
     void ConversionFailed(RenameDecision decision, string reason, bool rolledBack);
 
     void ConversionUnsupported(RenameDecision decision);
+
+    /// <summary>
+    /// Periodic progress tick for a running conversion; percent is null when
+    /// the total duration is unknown. Default: ignored.
+    /// </summary>
+    void ConversionProgress(RenameDecision decision, double? percent)
+    {
+    }
 }
 
 /// <summary>No-op reporter for hosts that do not surface status.</summary>

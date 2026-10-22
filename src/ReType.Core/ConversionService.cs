@@ -90,7 +90,8 @@ public sealed class ConversionService
         try
         {
             _reporter.ConversionStarted(decision);
-            await converter.ConvertAsync(target, decision.FromExtension, decision.ToExtension, tempPath, cancellationToken);
+            var progress = new DirectProgress<ConversionProgress>(p => _reporter.ConversionProgress(decision, p.Percent));
+            await converter.ConvertAsync(target, decision.FromExtension, decision.ToExtension, tempPath, progress, cancellationToken);
 
             // Swap the renamed (still old-format) file for the real converted content.
             _ledger.Record(target);
@@ -194,5 +195,11 @@ public sealed class ConversionService
         {
             // Best effort only.
         }
+    }
+
+    /// <summary>IProgress that invokes the handler synchronously on the reporting thread.</summary>
+    private sealed class DirectProgress<T>(Action<T> handler) : IProgress<T>
+    {
+        public void Report(T value) => handler(value);
     }
 }

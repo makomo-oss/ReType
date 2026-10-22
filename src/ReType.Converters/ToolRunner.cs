@@ -48,7 +48,8 @@ public static class ToolRunner
         string executable,
         string arguments,
         TimeSpan? timeout,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IProgress<string>? stdoutLines = null)
     {
         var startInfo = new ProcessStartInfo
         {
@@ -65,7 +66,9 @@ public static class ToolRunner
         using var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException($"Failed to start {executable}");
 
-        var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        Task<string> stdoutTask = stdoutLines is null
+            ? process.StandardOutput.ReadToEndAsync(cancellationToken)
+            : ReadAndReportAsync(process.StandardOutput, stdoutLines, cancellationToken);
         var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -92,5 +95,18 @@ public static class ToolRunner
         }
 
         return new ToolResult(process.ExitCode, await stdoutTask, await stderrTask);
+    }
+
+    private static async Task<string> ReadAndReportAsync(StreamReader reader, IProgress<string> lines, CancellationToken cancellationToken)
+    {
+        var all = new StringBuilder();
+        string? line;
+        while ((line = await reader.ReadLineAsync(cancellationToken)) is not null)
+        {
+            all.AppendLine(line);
+            lines.Report(line);
+        }
+
+        return all.ToString();
     }
 }

@@ -300,15 +300,18 @@ public sealed class TrayContext : ApplicationContext
         }
 
         _notifyIcon.Icon = paused ? _pausedIcon : _normalIcon;
-        _notifyIcon.Text = paused ? "ReType（監視一時停止中）" : "ReType";
+        _notifyIcon.Text = IdleIconText;
     }
+
+    /// <summary>Tooltip shown when no conversion is running; reflects the pause state.</summary>
+    private string IdleIconText => _pauseMenuItem?.Checked == true ? "ReType（監視一時停止中）" : "ReType";
 
     private void RestartWatching()
     {
         _watcher?.Dispose();
         _queue?.DisposeAsync().AsTask().GetAwaiter().GetResult();
 
-        var reporter = new BalloonReporter(_notifyIcon);
+        var reporter = new BalloonReporter(_notifyIcon, () => IdleIconText);
         var service = new ConversionService(CreateConverters(_settings), _ledger, reporter);
         _queue = new ConversionQueue(service.ProcessRenameAsync);
         _watcher = new FileWatcherService(_ledger) { Paused = _pauseMenuItem?.Checked == true };

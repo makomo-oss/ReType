@@ -95,6 +95,50 @@ public sealed class FfmpegConverterTests : IDisposable
         Assert.False(_converter.CanConvert(".md", ".docx"));
     }
 
+    [Theory]
+    [InlineData("  Duration: 00:12:34.56, start: 0.000000, bitrate: 100 kb/s", 754.56)]
+    [InlineData("  Duration: 00:00:01.02, start: 0.100000", 1.02)]
+    [InlineData("no duration here", null)]
+    public void TryGetDuration_ParsesFfmpegStreamInfo(string output, double? expectedSeconds)
+    {
+        var duration = FfmpegConverter.TryGetDuration(output);
+        if (expectedSeconds is null)
+        {
+            Assert.Null(duration);
+        }
+        else
+        {
+            Assert.NotNull(duration);
+            Assert.Equal(expectedSeconds.Value, duration.Value.TotalSeconds, 2);
+        }
+    }
+
+    [Theory]
+    [InlineData("out_time_ms=30000000", 40.0)]   // 30s of a 75s total (out_time_ms is microseconds)
+    [InlineData("out_time_ms=99999999999", 100.0)] // clamped
+    [InlineData("bitrate=1234.5", null)]          // not a progress line
+    [InlineData("out_time_ms=garbage", null)]
+    public void TryGetProgressPercent_ComputesFromOutTime(string line, double? expectedPercent)
+    {
+        var duration = TimeSpan.FromSeconds(75);
+        var percent = FfmpegConverter.TryGetProgressPercent(line, duration);
+        if (expectedPercent is null)
+        {
+            Assert.Null(percent);
+        }
+        else
+        {
+            Assert.NotNull(percent);
+            Assert.Equal(expectedPercent.Value, percent.Value, 1);
+        }
+    }
+
+    [Fact]
+    public void TryGetProgressPercent_UnknownDurationYieldsNull()
+    {
+        Assert.Null(FfmpegConverter.TryGetProgressPercent("out_time_ms=30000000", TimeSpan.Zero));
+    }
+
     private async Task<string> CreateSampleMp4Async()
     {
         var mp4 = Path.Combine(_dir, "sample.mp4");
