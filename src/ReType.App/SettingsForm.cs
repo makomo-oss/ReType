@@ -43,7 +43,7 @@ public sealed class SettingsForm : Form
     };
     private readonly Button _updateButton = new()
     {
-        Location = new Point(416, 50),
+        Location = new Point(394, 50),
         Size = new Size(110, 28),
         Visible = false,
     };
@@ -59,14 +59,14 @@ public sealed class SettingsForm : Form
     private readonly Button _undoButton = new()
     {
         Text = "元に戻す",
-        Location = new Point(420, 22),
-        Size = new Size(86, 28),
+        Location = new Point(414, 22),
+        Size = new Size(90, 28),
     };
     private readonly Button _clearHistoryButton = new()
     {
         Text = "履歴を消去",
-        Location = new Point(420, 54),
-        Size = new Size(86, 28),
+        Location = new Point(394, 54),
+        Size = new Size(110, 28),
     };
     private readonly Label _historyStatus = new()
     {
@@ -133,7 +133,7 @@ public sealed class SettingsForm : Form
         foldersGroup.Controls.AddRange([_folderList, addButton, removeButton, _subdirectories]);
 
         // --- Categories ---
-        var categoriesGroup = new GroupBox { Text = "変換カテゴリ", Location = new Point(12, 224), Size = new Size(516, 132) };
+        var categoriesGroup = new GroupBox { Text = "変換カテゴリ", Location = new Point(12, 224), Size = new Size(516, 150) };
         _images.Checked = settings.EnableImageConversions;
         _video.Checked = settings.EnableVideoConversions;
         _audio.Checked = settings.EnableAudioConversions;
@@ -157,12 +157,12 @@ public sealed class SettingsForm : Form
         ]);
 
         // --- Startup ---
-        var startupGroup = new GroupBox { Text = "起動", Location = new Point(12, 362), Size = new Size(516, 50) };
+        var startupGroup = new GroupBox { Text = "起動", Location = new Point(12, 380), Size = new Size(516, 50) };
         _autoStart.Checked = autoStartEnabled;
         startupGroup.Controls.Add(_autoStart);
 
         // --- Version and updates ---
-        var updateGroup = new GroupBox { Text = "バージョンとアップデート", Location = new Point(12, 418), Size = new Size(516, 92) };
+        var updateGroup = new GroupBox { Text = "バージョンとアップデート", Location = new Point(12, 436), Size = new Size(516, 92) };
         _versionLabel.Text = $"現在のバージョン: {_currentVersion}";
         _checkUpdateButton.Click += OnCheckUpdateClick;
         _updateButton.Click += OnUpdateClick;
@@ -172,10 +172,10 @@ public sealed class SettingsForm : Form
         Control? historyGroup = null;
         if (_history is not null)
         {
-            historyGroup = new GroupBox { Text = "最近の変換", Location = new Point(12, 516), Size = new Size(516, 170) };
-            _historyList.Columns.Add("日時", 90);
-            _historyList.Columns.Add("ファイル", 210);
-            _historyList.Columns.Add("結果", 90);
+            historyGroup = new GroupBox { Text = "最近の変換", Location = new Point(12, 534), Size = new Size(516, 170) };
+            _historyList.Columns.Add("日時", 110);
+            _historyList.Columns.Add("ファイル", 190);
+            _historyList.Columns.Add("結果", 80);
             PopulateHistory();
             _undoButton.Click += OnUndoClick;
             _clearHistoryButton.Click += (_, _) =>
@@ -187,13 +187,13 @@ public sealed class SettingsForm : Form
             historyGroup.Controls.AddRange([_historyList, _undoButton, _clearHistoryButton, _historyStatus]);
         }
 
-        var formHeight = historyGroup is null ? 544 : 700;
+        var formHeight = historyGroup is null ? 570 : 746;
         ClientSize = new Size(540, formHeight);
 
         // --- Dialog buttons ---
-        var okButton = new Button { Text = "OK", DialogResult = DialogResult.OK, Location = new Point(332, formHeight - 30), Size = new Size(90, 28) };
+        var okButton = new Button { Text = "OK", DialogResult = DialogResult.OK, Location = new Point(332, formHeight - 36), Size = new Size(90, 28) };
         okButton.Click += OnOk;
-        var cancelButton = new Button { Text = "キャンセル", DialogResult = DialogResult.Cancel, Location = new Point(430, formHeight - 30), Size = new Size(90, 28) };
+        var cancelButton = new Button { Text = "キャンセル", DialogResult = DialogResult.Cancel, Location = new Point(430, formHeight - 36), Size = new Size(90, 28) };
         // DialogResult only auto-closes forms shown via ShowDialog; this form is
         // modeless, so close it ourselves. Button.OnClick has already set
         // Form.DialogResult by the time the Click event fires, so TrayContext can
